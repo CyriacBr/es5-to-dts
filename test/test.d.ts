@@ -6,7 +6,6 @@ declare global {
         changed: boolean;
     }
 }
-
 export declare namespace MyNamespace {
     class Animal {
         new(name: any, age: any, race: any);
@@ -20,7 +19,6 @@ export declare namespace MyNamespace {
 
         readonly owner: any;
     }
-    
     class Dog extends Animal {
         /**
          * Create a new dog
