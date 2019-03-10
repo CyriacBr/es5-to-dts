@@ -4,6 +4,9 @@ It works by identifying certain patterns from old JS.
 
 It might not work properly or cover 100% of the possible cases, so you'll probably need to tweak the generated `dts` manually. But it gets the job done and save a lot of time. It is even better if the legacy code contains JsDoc comments.
 
+Made using TypeScript compiler API and this AST visualizer:  
+https://astexplorer.net/
+
 ## Installation
 `npm -g i es5-to-dts`  
 To generate a declaration file:  

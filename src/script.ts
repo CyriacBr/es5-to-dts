@@ -1,3 +1,5 @@
+//#!/usr/bin/env node
+
 import { File, createProgram, collectProperties, makePseudoClasses, makeDTS, setNamespace } from './generator';
 import * as ts from 'typescript';
 import * as fs from 'fs';

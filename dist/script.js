@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 'use strict';
 
 var ts = require('typescript');
@@ -439,6 +440,7 @@ function classToString(_class) {
         .join('\n\n') + "\n  }";
 }
 
+//#!/usr/bin/env node
 var callerPath = process.cwd();
 var fileName = process.argv[2];
 var namespace = process.argv[3];
