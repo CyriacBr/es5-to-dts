@@ -18,7 +18,7 @@ try {
 
   const lib: File = {
     content: fs
-      .readFileSync(path.resolve(__dirname, '../node_modules/typescript/lib/lib.es5.d.ts'))
+      .readFileSync(path.resolve(__dirname, '../lib/lib.es5.d.ts'))
       .toString(),
     fileName: 'lib.es2018.d.ts'
   };
