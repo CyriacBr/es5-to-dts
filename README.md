@@ -1,5 +1,5 @@
 # ES5 To DTS
-This tool generate TypeScript declaration files from legacy JS code.
+This tool generates TypeScript declaration files from legacy JS code.
 It works by identifying certain patterns from old JS.
 
 It might not work properly or cover 100% of the possible cases, so you'll probably need to tweak the generated `dts` manually. But it gets the job done and save a lot of time. It is even better if the legacy code contains JsDoc comments.
