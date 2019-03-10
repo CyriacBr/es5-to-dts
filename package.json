@@ -18,7 +18,7 @@
   "author": "CyriacBr <cyriacbr@gmail.com>",
   "repository": {
     "type": "github",
-    "url": "https://github.com/CyriacBr/-urd-core.git"
+    "url": "https://github.com/CyriacBr/es5-to-dts.git"
   },
   "license": "MIT",
   "devDependencies": {
