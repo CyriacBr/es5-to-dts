@@ -12,7 +12,7 @@ https://astexplorer.net/
 To generate a declaration file:  
 `es5-to-dts oldFile.js NamespaceName`
 
-## Exemple
+## Example
 Old JS code:  
 ```javascript
 
