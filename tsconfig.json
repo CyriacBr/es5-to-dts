@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "./dist",
+    "module": "es2015",
+    "noImplicitAny": false,
+    "outDir": "./dist",
+    "target": "es5",
+    "lib": ["es7"],
+    "moduleResolution": "node"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
