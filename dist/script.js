@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 'use strict';
 
 var ts = require('typescript');
@@ -451,7 +452,7 @@ try {
         fileName: 'file1.ts'
     };
     var lib = {
-        content: fs.readFileSync(path.resolve(__dirname, '../node_modules/typescript/lib/lib.es5.d.ts'))
+        content: fs.readFileSync(path.resolve(__dirname, '../lib/lib.es5.d.ts'))
             .toString(),
         fileName: 'lib.es2018.d.ts'
     };
