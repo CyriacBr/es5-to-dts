@@ -1,6 +1,6 @@
 //#!/usr/bin/env node
 
-import { File, createProgram, collectProperties, makePseudoClasses, makeDTS, setNamespace } from './generator';
+import { File, createProgram, collectProperties, makePseudoClasses, makeDTS, setNamespace, makeFunctionDeclarations } from './generator';
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -28,10 +28,11 @@ try {
   const properties = collectProperties(program);
   console.log(' -> Done');
   console.log(' - Collecting pseudo classes');
-  const classes = makePseudoClasses(program, properties);
+  const builtClasses = makePseudoClasses(program, properties);
+  const [classes, functions] = makeFunctionDeclarations(builtClasses);
   console.log(' -> Done');
   console.log(' - Writing result');
-  const result = makeDTS(classes);
+  const result = makeDTS(classes, functions);
   const resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
   fs.writeFileSync(path.resolve(callerPath, resultFileName), result);
   console.log(' -> Done');

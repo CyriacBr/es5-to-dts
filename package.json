@@ -1,10 +1,11 @@
 {
   "name": "es5-to-dts",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "",
   "main": "dist/script.js",
   "files": [
-    "dist"
+    "dist",
+    "lib"
   ],
   "types": "dist/generator.d.ts",
   "bin": {

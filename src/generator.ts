@@ -85,6 +85,7 @@ export function collectProperties(program: ts.Program) {
   function visit(node: ts.Node, parentSymbol: string = null, fromStatic: boolean = null) {
     if (ts.isVariableStatement(node)) {
       for (const declaration of node.declarationList.declarations) {
+        if (declaration.initializer && ts.isFunctionExpression(declaration.initializer)) continue;
         if (ts.isIdentifier(declaration.name))
           localVariables.push(declaration.name.escapedText.toString());
       }
@@ -179,21 +180,37 @@ interface PseudoClass {
 }
 
 export function makePseudoClasses(program: ts.Program, properties: Property[]) {
-  const classes: PseudoClass[] = [];
+  let classes: PseudoClass[] = [];
   const checker = program.getTypeChecker();
 
   function visit(node: ts.Node) {
-    if (ts.isFunctionDeclaration(node)) {
-      const name = node.name.escapedText.toString();
-      const constructorArgs = makeVariablesFromParameters(
-        checker,
-        Array.from(node.parameters || [])
-      );
+    if (ts.isFunctionDeclaration(node) || ts.isVariableStatement(node)) {
+      let name: string, constructorArgs: Variable[], body: ts.Block;
+      if (ts.isFunctionDeclaration(node)) {
+        name = node.name.escapedText.toString();
+        constructorArgs = makeVariablesFromParameters(checker, Array.from(node.parameters || []));
+        body = node.body;
+      } else if (ts.isVariableStatement(node)) {
+        const declaration = node.declarationList.declarations[0];
+        if (
+          ts.isVariableDeclaration(declaration) && declaration.initializer &&
+          ts.isFunctionExpression(declaration.initializer)
+        ) {
+          name = (declaration.name as ts.Identifier).escapedText.toString();
+          constructorArgs = makeVariablesFromParameters(
+            checker,
+            Array.from(declaration.initializer.parameters || [])
+          );
+          body = declaration.initializer.body;
+        }
+      }
       const jsDoc: ts.JSDoc = (node as any).jsDoc;
       const lastJsDoc: ts.JSDoc = jsDoc ? jsDoc[(jsDoc as any).length - 1] : null;
+
+      if(!body || !body.statements) return;
       // - Look for call of the true constructor
       let constructorProperty: Property = null;
-      for (const statement of node.body.statements) {
+      for (const statement of body.statements) {
         if (ts.isExpressionStatement(statement)) {
           const str = statement.getText();
           if (str.match(/this\.(.+)\.apply\(this,/i)) {
@@ -236,7 +253,10 @@ export function makePseudoClasses(program: ts.Program, properties: Property[]) {
         } else {
           _class.extends = RegExp.$2;
         }
-      } else if (str.match(/Object\.definePropert.+\((.+?),/i) && ts.isCallExpression(node.expression)) {
+      } else if (
+        str.match(/Object\.definePropert.+\((.+?),/i) &&
+        ts.isCallExpression(node.expression)
+      ) {
         // - Extract properties from getter/setter
         const properties: Property[] = [];
         const value = RegExp.$1;
@@ -326,6 +346,17 @@ export function makePseudoClasses(program: ts.Program, properties: Property[]) {
     }
   }
   return classes;
+}
+
+export function makeFunctionDeclarations(classes: PseudoClass[]) {
+  const functions: PseudoClass[] = [];
+  // - Remove pseudo classes without properties (= they are not classes then)
+  classes = classes.filter(c => {
+    if (c.properties.length > 0) return true;
+    functions.push(c);
+    return false;
+  });
+  return [classes, functions];
 }
 
 export function makePropertyFromObjectLiteral(
@@ -465,7 +496,7 @@ export function extractJsDocType(doc: ts.JSDoc, currentType: string = '') {
   return `(${params.map(p => `${p.name}: ${p.type}`).join(', ')}) => ${returnType}`;
 }
 
-export function makeDTS(classes: PseudoClass[]) {
+export function makeDTS(classes: PseudoClass[], functions: PseudoClass[]) {
   const globals = classes.map(c => (c.global ? c : null)).filter(v => !!v);
   let text = '';
   if (globals.length > 0) {
@@ -482,6 +513,7 @@ export function makeDTS(classes: PseudoClass[]) {
   }
   const normal = classes.filter(c => !c.global);
   text += `export declare namespace ${_namespace}{
+    ${functions.map(f => functionToString(f)).join('\n')}
     ${normal.map(c => classToString(c)).join('\n')}
   }`;
   return Beautify.js(text, {});
@@ -507,4 +539,9 @@ export function classToString(_class: PseudoClass) {
     .map(p => propertyToString(p))
     .join('\n\n')}
   }`;
+}
+
+export function functionToString(func: PseudoClass) {
+  const doc = func.jsDoc && func.jsDoc.getText ? func.jsDoc.getText() : '';
+  return `${doc}function ${func.name}${func.constructorSignature};`;
 }

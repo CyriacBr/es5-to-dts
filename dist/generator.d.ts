@@ -30,6 +30,7 @@ interface PseudoClass {
     jsDoc?: ts.JSDoc;
 }
 export declare function makePseudoClasses(program: ts.Program, properties: Property[]): PseudoClass[];
+export declare function makeFunctionDeclarations(classes: PseudoClass[]): PseudoClass[][];
 export declare function makePropertyFromObjectLiteral(checker: ts.TypeChecker, expr: ts.ObjectLiteralExpression, jsDoc: ts.JSDoc): {
     readonly: boolean;
     type: string;
@@ -39,7 +40,8 @@ export declare function traverseProgram(program: ts.Program, callback: (node: ts
 export declare function getTypeString(checker: ts.TypeChecker, node: ts.Node): string;
 export declare function convertJsDocType(type: string): any;
 export declare function extractJsDocType(doc: ts.JSDoc, currentType?: string): any;
-export declare function makeDTS(classes: PseudoClass[]): any;
+export declare function makeDTS(classes: PseudoClass[], functions: PseudoClass[]): any;
 export declare function propertyToString(property: Property): string;
 export declare function classToString(_class: PseudoClass): string;
+export declare function functionToString(func: PseudoClass): string;
 export {};

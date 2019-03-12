@@ -7,10 +7,18 @@ It might not work properly or cover 100% of the possible cases, so you'll probab
 Made using TypeScript compiler API and this AST visualizer:  
 https://astexplorer.net/
 
+
+## Changelog
+- 1.0.0: Initial release
+- 1.0.3: Fixed lib.es5.d.ts not found
+- 1.0.4: Added two more patterns to handle
+
+
 ## Installation
 `npm -g i es5-to-dts`  
 To generate a declaration file:  
 `es5-to-dts oldFile.js NamespaceName`
+
 
 ## Example
 Old JS code:  

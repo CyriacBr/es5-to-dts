@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 'use strict';
 
 var ts = require('typescript');
@@ -45,6 +44,8 @@ function collectProperties(program) {
         if (ts.isVariableStatement(node)) {
             for (var _i = 0, _a = node.declarationList.declarations; _i < _a.length; _i++) {
                 var declaration = _a[_i];
+                if (declaration.initializer && ts.isFunctionExpression(declaration.initializer))
+                    continue;
                 if (ts.isIdentifier(declaration.name))
                     localVariables.push(declaration.name.escapedText.toString());
             }
@@ -130,14 +131,29 @@ function makePseudoClasses(program, properties) {
     var classes = [];
     var checker = program.getTypeChecker();
     function visit(node) {
-        if (ts.isFunctionDeclaration(node)) {
-            var name_1 = node.name.escapedText.toString();
-            var constructorArgs = makeVariablesFromParameters(checker, Array.from(node.parameters || []));
+        if (ts.isFunctionDeclaration(node) || ts.isVariableStatement(node)) {
+            var name_1, constructorArgs = void 0, body = void 0;
+            if (ts.isFunctionDeclaration(node)) {
+                name_1 = node.name.escapedText.toString();
+                constructorArgs = makeVariablesFromParameters(checker, Array.from(node.parameters || []));
+                body = node.body;
+            }
+            else if (ts.isVariableStatement(node)) {
+                var declaration = node.declarationList.declarations[0];
+                if (ts.isVariableDeclaration(declaration) && declaration.initializer &&
+                    ts.isFunctionExpression(declaration.initializer)) {
+                    name_1 = declaration.name.escapedText.toString();
+                    constructorArgs = makeVariablesFromParameters(checker, Array.from(declaration.initializer.parameters || []));
+                    body = declaration.initializer.body;
+                }
+            }
             var jsDoc = node.jsDoc;
             var lastJsDoc = jsDoc ? jsDoc[jsDoc.length - 1] : null;
+            if (!body || !body.statements)
+                return;
             // - Look for call of the true constructor
             var constructorProperty = null;
-            for (var _i = 0, _a = node.body.statements; _i < _a.length; _i++) {
+            for (var _i = 0, _a = body.statements; _i < _a.length; _i++) {
                 var statement = _a[_i];
                 if (ts.isExpressionStatement(statement)) {
                     var str = statement.getText();
@@ -182,7 +198,8 @@ function makePseudoClasses(program, properties) {
                     _class.extends = RegExp.$2;
                 }
             }
-            else if (str.match(/Object\.definePropert.+\((.+?),/i) && ts.isCallExpression(node.expression)) {
+            else if (str.match(/Object\.definePropert.+\((.+?),/i) &&
+                ts.isCallExpression(node.expression)) {
                 // - Extract properties from getter/setter
                 var properties_2 = [];
                 var value = RegExp.$1;
@@ -280,6 +297,17 @@ function makePseudoClasses(program, properties) {
         _loop_1(p);
     }
     return classes;
+}
+function makeFunctionDeclarations(classes) {
+    var functions = [];
+    // - Remove pseudo classes without properties (= they are not classes then)
+    classes = classes.filter(function (c) {
+        if (c.properties.length > 0)
+            return true;
+        functions.push(c);
+        return false;
+    });
+    return [classes, functions];
 }
 function makePropertyFromObjectLiteral(checker, expr, jsDoc) {
     var readonly = true;
@@ -416,7 +444,7 @@ function extractJsDocType(doc, currentType) {
     }
     return "(" + params.map(function (p) { return p.name + ": " + p.type; }).join(', ') + ") => " + returnType;
 }
-function makeDTS(classes) {
+function makeDTS(classes, functions) {
     var globals = classes.map(function (c) { return (c.global ? c : null); }).filter(function (v) { return !!v; });
     var text = '';
     if (globals.length > 0) {
@@ -425,7 +453,7 @@ function makeDTS(classes) {
             .join('\n') + "\n  }\n  ";
     }
     var normal = classes.filter(function (c) { return !c.global; });
-    text += "export declare namespace " + _namespace + "{\n    " + normal.map(function (c) { return classToString(c); }).join('\n') + "\n  }";
+    text += "export declare namespace " + _namespace + "{\n    " + functions.map(function (f) { return functionToString(f); }).join('\n') + "\n    " + normal.map(function (c) { return classToString(c); }).join('\n') + "\n  }";
     return Beautify.js(text, {});
 }
 function propertyToString(property) {
@@ -439,6 +467,10 @@ function classToString(_class) {
         .filter(function (p) { return p !== _class.constructorProperty; })
         .map(function (p) { return propertyToString(p); })
         .join('\n\n') + "\n  }";
+}
+function functionToString(func) {
+    var doc = func.jsDoc && func.jsDoc.getText ? func.jsDoc.getText() : '';
+    return doc + "function " + func.name + func.constructorSignature + ";";
 }
 
 //#!/usr/bin/env node
@@ -462,10 +494,11 @@ try {
     var properties = collectProperties(program);
     console.log(' -> Done');
     console.log(' - Collecting pseudo classes');
-    var classes = makePseudoClasses(program, properties);
+    var builtClasses = makePseudoClasses(program, properties);
+    var _a = makeFunctionDeclarations(builtClasses), classes = _a[0], functions = _a[1];
     console.log(' -> Done');
     console.log(' - Writing result');
-    var result = makeDTS(classes);
+    var result = makeDTS(classes, functions);
     var resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
     fs.writeFileSync(path.resolve(callerPath, resultFileName), result);
     console.log(' -> Done');
