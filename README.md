@@ -2,7 +2,7 @@
 This tool generates TypeScript declaration files from legacy JS code.
 It works by identifying certain patterns from old JS.
 
-It might not work properly or cover 100% of the possible cases, so you'll probably need to tweak the generated `dts` manually. But it gets the job done and save a lot of time. It is even better if the legacy code contains JsDoc comments.
+It might not work properly or cover 100% of the possible cases, so you'll probably need to tweak the generated `dts` manually. But it gets the job done and saves a lot of time. It is even better if the legacy code contains JsDoc comments.
 
 Made using TypeScript compiler API and this AST visualizer:  
 https://astexplorer.net/
@@ -22,9 +22,9 @@ Feel free to open an issue with the logs and the concerned part of code.
 - 1.0.4: Added two more patterns to handle
 - 1.0.5:  
 Restructured code  
-Added error handling
-Added unit testing
-Added many more patterns to handle
+Added error handling  
+Added unit testing  
+Added many more patterns to handle  
 
 
 ## Installation
