@@ -1,42 +1,19 @@
-//#!/usr/bin/env node
-
-import { File, createProgram, collectProperties, makePseudoClasses, makeDTS, setNamespace, makeFunctionDeclarations } from './generator';
+import { File, createProgram, setNamespace, makeFunctionDeclarations } from './utils';
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PropertyCollector } from './generator/propertyCollector';
+import { ClassCollector } from './generator/classCollector';
+import { DTSWriter } from './generator/dtsWriter';
+import { Runner } from './generator/runner';
 
 const callerPath = process.cwd();
 const fileName = process.argv[2] as string;
 const namespace = process.argv[3] as string;
 setNamespace(namespace || 'UnknownNamespace');
 
-try {
-  const file: File = {
-    content: fs.readFileSync(path.resolve(callerPath, fileName)).toString(),
-    fileName: 'file1.ts'
-  };
-
-  const lib: File = {
-    content: fs
-      .readFileSync(path.resolve(__dirname, '../lib/lib.es5.d.ts'))
-      .toString(),
-    fileName: 'lib.es2018.d.ts'
-  };
-  const program: ts.Program = createProgram([file, lib], {});
-  console.log(' - TS program created');
-  console.log(' - Collecting properties');
-  const properties = collectProperties(program);
-  console.log(' -> Done');
-  console.log(' - Collecting pseudo classes');
-  const builtClasses = makePseudoClasses(program, properties);
-  const [classes, functions] = makeFunctionDeclarations(builtClasses);
-  console.log(' -> Done');
-  console.log(' - Writing result');
-  const result = makeDTS(classes, functions);
-  const resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
-  fs.writeFileSync(path.resolve(callerPath, resultFileName), result);
-  console.log(' -> Done');
-} catch (error) {
-  console.log('An error occured.');
-  throw error;
-}
+const file: File = {
+  content: fs.readFileSync(path.resolve(callerPath, fileName)).toString(),
+  fileName: 'file1.ts'
+};
+Runner.run(namespace, file, fileName, callerPath);

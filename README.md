@@ -8,10 +8,23 @@ Made using TypeScript compiler API and this AST visualizer:
 https://astexplorer.net/
 
 
+## Caveats
+As I said, the tool may not be able to handle some cases. Errors caught during generation are archived and can be
+viewed at the end:  
+![Error handling](https://i.imgur.com/ue7EJDu.png)
+
+Feel free to open an issue with the logs and the concerned part of code.
+
+
 ## Changelog
 - 1.0.0: Initial release
 - 1.0.3: Fixed lib.es5.d.ts not found
 - 1.0.4: Added two more patterns to handle
+- 1.0.5:  
+Restructured code  
+Added error handling
+Added unit testing
+Added many more patterns to handle
 
 
 ## Installation
@@ -38,6 +51,13 @@ function Animal(name, age, race) {
   this.race = race;
   this._owner = null;
 }
+
+Object.defineProperty(Animal.prototype, 'owner', {
+  get: function() {
+      return this._owner;
+  },
+  configurable: true
+});
 
 /**
  * Create a new dog
@@ -73,13 +93,6 @@ Dog.prototype.bark = function(times) {
 Dog.getCount = function() {
   return this._count;
 }
-
-Object.defineProperty(Animal.prototype, 'owner', {
-  get: function() {
-      return this._owner;
-  },
-  configurable: true
-});
 ```
 
 Result:  

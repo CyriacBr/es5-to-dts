@@ -9,6 +9,6 @@
     "lib": ["es7"],
     "moduleResolution": "node"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "lib/lib.es5.d.ts"],
   "exclude": ["node_modules"]
 }
