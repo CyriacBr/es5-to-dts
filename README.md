@@ -15,6 +15,8 @@ viewed at the end:
 
 Feel free to open an issue with the logs and the concerned part of code.
 
+Since 1.1.0, es5-to-dts now try to guess types from usage and objects' properties.  
+Refer to the test cases bellow.
 
 ## Changelog
 - 1.0.0: Initial release
@@ -25,12 +27,31 @@ Restructured code
 Added error handling  
 Added unit testing  
 Added many more patterns to handle  
+- 1.1.0:  
+Added cli options
+Added type guessing
+
+
+## TODO
+- Remove duplicate properties
+- Advanced type guessing
 
 
 ## Installation
 `npm -g i es5-to-dts`  
+Make sure you have the latest TypeScript package installed globally:  
+`npm -g i typescript`
+
 To generate a declaration file:  
-`es5-to-dts oldFile.js NamespaceName`
+`es5-to-dts oldFile.js`
+
+### CLI Options
+- `-n namespace` : The definitions will be wrapper inside a namespace.
+- `-a` : Process all files inside the directory.
+- `-r` : Collect root variables.  
+- `-g` : Guess types.
+
+Example: `es5-to-dts oldFile.js -n MyNamespace -r -g`
 
 
 ## Example

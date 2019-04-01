@@ -7,7 +7,8 @@
     "outDir": "./dist",
     "target": "es5",
     "lib": ["es7"],
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "resolveJsonModule": true
   },
   "include": ["src/**/*", "lib/lib.es5.d.ts"],
   "exclude": ["node_modules"]

@@ -1,10 +1,6 @@
 import * as ts from 'typescript';
 import { PseudoClass } from './generator/classCollector';
 
-let _namespace = 'MyNamespace';
-export const setNamespace = (name: string) => (_namespace = name);
-export const getNamespace = () => _namespace;
-
 export interface File {
   fileName: string;
   content: string;
@@ -127,7 +123,6 @@ export function makeVariablesFromParameters(
 export function traverseProgram(program: ts.Program, callback: (node: ts.Node) => any) {
   for (const sourceFile of program.getSourceFiles()) {
     if (!sourceFile.isDeclarationFile) {
-      // Walk the tree to search for classes
       ts.forEachChild(sourceFile, callback);
     }
   }
@@ -212,4 +207,41 @@ export function extractJsDocType(doc: ts.JSDoc, currentType: string = '') {
     returnType = returnType || RegExp.$2.trim();
   }
   return `(${params.map(p => `${p.name}: ${p.type}`).join(', ')}) => ${returnType}`;
+}
+
+export function objectLiteralToObject(expr: ts.ObjectLiteralExpression) {
+  if(expr.getText().length < 2) return {};
+  let str = expr.getText().replace(/(^\{|\}$)/ig,'');
+  const props = str.split(/(;|,)/);
+  let obj = {};
+  for (const p of props) {
+    if(p.match(/(.+)\:(.+)/)) {
+      const key = RegExp.$1.trim();
+      let value: any = RegExp.$2.trim();
+      if (value.match(/\{.+\}/)) {
+        value = objectLiteralToObject({
+          getText: () => value
+        } as any);
+      }
+      obj[key] = value;
+    }
+  }
+  return obj;
+}
+
+export function collectNodesBy(program: ts.Program, constraint: (node: ts.Node) => boolean, startingNode?: ts.Node) {
+  let nodes = [];
+  let visit = (node: ts.Node) => {
+    if(constraint(node)) {
+      nodes.push(node);
+    } else {
+      node.forEachChild(visit);
+    }
+  };
+  if(startingNode) {
+    startingNode.forEachChild(visit);
+  } else {
+    traverseProgram(program, visit);
+  }
+  return nodes;
 }

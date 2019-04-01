@@ -7,6 +7,8 @@ import {
   EQUAL_TOKEN
 } from '../utils';
 import { ErrorLogger } from './errorLogger';
+import { Runner } from './runner';
+import { Guess } from './typeGuesser';
 
 export interface Property {
   parentSymbol: string;
@@ -16,6 +18,9 @@ export interface Property {
   readonly?: boolean;
   jsDoc?: ts.JSDoc;
   linkedToFunction?: string;
+  typeGuessing?: Guess;
+  guessedType?: string;
+  rightNode?: ts.Node;
 }
 
 export class PropertyCollector {
@@ -36,10 +41,10 @@ export class PropertyCollector {
     return this.properties;
   }
 
-  _visit(node: ts.Node) {
+  _visit(node: ts.Node, parentNode: ts.Node = null) {
     try {
       if (ts.isVariableStatement(node)) {
-        this._onVariableStatement(node);
+        this._onVariableStatement(node, parentNode);
       } else if (ts.isFunctionDeclaration(node)) {
         this._onFunctionDeclaration(node);
       } else if (
@@ -56,7 +61,7 @@ export class PropertyCollector {
     }
   }
 
-  _onVariableStatement(node: ts.VariableStatement) {
+  _onVariableStatement(node: ts.VariableStatement, parentNode: ts.Node) {
     for (const declaration of node.declarationList.declarations) {
       if (declaration.initializer) {
         if (
@@ -65,8 +70,19 @@ export class PropertyCollector {
         )
           continue;
       }
-      if (ts.isIdentifier(declaration.name))
-        this.localVariables.push(declaration.name.escapedText.toString());
+      if (ts.isIdentifier(declaration.name)) {
+        if(Runner.options.collectRootVariables && !parentNode) {
+          this.properties.push({
+            name: declaration.name.escapedText.toString(),
+            type: declaration.initializer ? getTypeString(this.checker, declaration.initializer) : 'any',
+            rightNode: declaration.initializer,
+            parentSymbol: null
+          });
+        } else {
+          this.localVariables.push(declaration.name.escapedText.toString());
+        }
+      }
+        
     }
   }
 
@@ -76,7 +92,7 @@ export class PropertyCollector {
     for (const statement of statements) {
       this.state.parentSymbol = name;
       this.state.fromStatic = false;
-      this._visit(statement);
+      this._visit(statement, node);
     }
   }
 
@@ -122,7 +138,8 @@ export class PropertyCollector {
         static: _static,
         type,
         jsDoc: doc,
-        linkedToFunction: ts.isIdentifier(expr.right) ? expr.right.escapedText.toString() : null
+        linkedToFunction: ts.isIdentifier(expr.right) ? expr.right.escapedText.toString() : null,
+        rightNode: expr.right
       };
       const exist = this.properties.find(
         p =>

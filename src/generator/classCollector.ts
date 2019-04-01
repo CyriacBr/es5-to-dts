@@ -41,8 +41,11 @@ export class ClassCollector {
     traverseProgram(program, this._visit.bind(this));
     // - Find out global pseudo classes
     for (const p of properties) {
+      if(!p.parentSymbol) continue;
       const _class = this.classes.find(c => c.name === p.parentSymbol);
       if (!_class) {
+        const parentAsProp = properties.find(_p => _p.name === p.parentSymbol);
+        if(parentAsProp && !parentAsProp.parentSymbol) continue;
         this.classes.push({
           constructorArgs: [],
           constructorProperty: null,

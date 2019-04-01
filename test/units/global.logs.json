@@ -1,0 +1,16 @@
+{ builtData: { classes: [ [Object], [Object] ], functions: [] },
+  properties:
+   [ { name: 'mod',
+       parentSymbol: 'Number',
+       static: false,
+       type: '(n: any) => number',
+       jsDoc: undefined,
+       linkedToFunction: null,
+       rightNode: [NodeObject] },
+     { name: 'changed',
+       parentSymbol: 'SomethingGlobal',
+       static: true,
+       type: 'boolean',
+       jsDoc: undefined,
+       linkedToFunction: null,
+       rightNode: [TokenObject] } ] }

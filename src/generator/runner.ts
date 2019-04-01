@@ -1,30 +1,51 @@
-import { File, setNamespace, createProgram, makeFunctionDeclarations } from '../utils';
+import { File, createProgram, makeFunctionDeclarations } from '../utils';
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PropertyCollector } from './propertyCollector';
-import { ClassCollector } from './classCollector';
+import { PropertyCollector, Property } from './propertyCollector';
+import { ClassCollector, PseudoClass } from './classCollector';
 import { DTSWriter } from './dtsWriter';
 import ora from 'ora';
 import * as Readline from 'readline';
 import { ErrorLogger } from './errorLogger';
+import { TypeGuesser } from './typeGuesser';
+
+export interface Options {
+  namespace?: string;
+  allFiles?: boolean;
+  collectRootVariables?: boolean;
+  guessTypes?: boolean;
+}
 
 export class Runner {
+  static options: Options = {};
+  static result: {
+    properties: Property[];
+    builtData: {
+      classes: PseudoClass[];
+      functions: PseudoClass[];
+    };
+  };
+
+  static makeProgram(file: File) {
+    const lib: File = {
+      content: fs.readFileSync(path.resolve(__dirname, '../../lib/lib.es5.d.ts')).toString(),
+      fileName: 'lib.es2018.d.ts'
+    };
+    return createProgram([file, lib], {});
+  }
+
   static run(
-    namespace: string = 'UnknownNamespace',
+    options: Options,
     file: File,
     fileName: string,
     callerPath: string,
     mode: 'output' | 'write' = 'write'
   ): string {
-    setNamespace(namespace);
+    this.options = options;
 
     try {
-      const lib: File = {
-        content: fs.readFileSync(path.resolve(__dirname, '../../lib/lib.es5.d.ts')).toString(),
-        fileName: 'lib.es2018.d.ts'
-      };
-      const program: ts.Program = createProgram([file, lib], {});
+      const program = this.makeProgram(file);
 
       const properties = this._runPhase('Collecting properties', () =>
         new PropertyCollector().collect(program)
@@ -32,14 +53,23 @@ export class Runner {
       const builtData = this._runPhase('Collecting pseudo classes', () =>
         new ClassCollector().collect(program, properties)
       );
+      if(options.guessTypes) {
+        this._runPhase('Guessing properties typings', () => {
+          TypeGuesser.guess(program, properties, builtData.classes);
+        });
+      }
       const text = this._runPhase('Generating & writing result', () => {
-        const result = DTSWriter.make(builtData.classes, builtData.functions);
+        const result = DTSWriter.make(builtData.classes, builtData.functions, properties);
         if (mode === 'write') {
           const resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
           fs.writeFileSync(path.resolve(callerPath, resultFileName), result);
         }
         return result;
       });
+      this.result = {
+        builtData,
+        properties
+      };
 
       if (mode === 'write') {
         const hasError = ErrorLogger.archive.length > 0;
@@ -56,6 +86,7 @@ export class Runner {
           });
         }
       }
+
       return text;
     } catch (error) {
       console.log('An unexpected error occurred.');
