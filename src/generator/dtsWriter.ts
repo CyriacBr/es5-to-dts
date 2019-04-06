@@ -27,7 +27,9 @@ export class DTSWriter {
             ${globals
               .map(
                 c => `interface ${c.name} {
-              ${c.properties.map(p => this.propertyToString(p, true).replace('static', '')).join('\n')}
+              ${c.properties
+                .map(p => this.propertyToString(p, true).replace('static', ''))
+                .join('\n')}
             }`
               )
               .join('\n')}

@@ -49,7 +49,7 @@ export class MockupWriter {
       isMethod
         ? `${this.toMethodTypeString(property)}`
         : `${property.name}: ${this.propertyTypeToString(property)}`
-    };`.trim();
+    }`.trim();
   }
 
   static propertyTypeToString(property: Property) {
@@ -75,8 +75,8 @@ export class MockupWriter {
     } {${constructorDoc}
           ${
             _class.constructorProperty
-              ? `constructor${_class.constructorProperty.type.replace(/ \=\>.+/i, '')} {};\n`
-              : `constructor${_class.constructorSignature} {};\n`
+              ? `constructor${_class.constructorProperty.type.replace(/ \=\>.+/i, '')} {}\n`
+              : `constructor${_class.constructorSignature} {}\n`
           }${_class.properties
       .filter(p => p !== _class.constructorProperty)
       .map(p => this.propertyToString(p, true))
@@ -86,6 +86,6 @@ export class MockupWriter {
 
   static functionToString(func: PseudoClass) {
     const doc = func.jsDoc && func.jsDoc.getText ? func.jsDoc.getText() : '';
-    return `${doc}function ${func.name}${func.constructorSignature} { return null; };`;
+    return `${doc}function ${func.name}${func.constructorSignature} { return null; }`;
   }
 }

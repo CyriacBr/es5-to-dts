@@ -1,6 +1,6 @@
 import { PseudoClass } from './classCollector';
 import { Property } from './propertyCollector';
-export declare class DTSWriter {
+export declare class MockupWriter {
     static print(dts: string): string;
     static make(classes: PseudoClass[], functions: PseudoClass[], properties: Property[]): string;
     static propertyToString(property: Property, isMethod?: boolean): string;

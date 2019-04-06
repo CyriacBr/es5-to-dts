@@ -31,7 +31,7 @@ Added many more patterns to handle
 Added cli options
 Added type guessing
 - 1.1.1: Added '--all-files' cli flag
-- 1.1.2: Added '--m' cli flag, in order to generate mockup `ts` files instead of `d.ts`.
+- 1.1.2: Added '--mockup' cli flag, in order to generate mockup `ts` files instead of `d.ts`.
 Mockup files are simply a `d.ts` version with empty implementation.
 
 ## TODO

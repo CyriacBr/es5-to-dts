@@ -8,10 +8,11 @@ const cli = require('commander');
 cli
   .version(pkg.version)
   .option('-n, --namespace [namespace]', 'Wrap the file into a namespace')
-  .option('-a, --all-files [outputName]', 'Process all files in the directory and output a single dts')
+  .option('-a, --all-files [outputName]', 'Process all files in the directory and output a single d.ts')
   .option('-b, --bundled-output', 'When -a is used, bundle the output into a single file')
   .option('-r, --root-variables', 'Collect root variables')
   .option('-g, --guess-types', 'Guess types')
+  .option('-m, --mockup', 'Generate a mockup of the definition file instead of a d.ts')
   .parse(process.argv);
 const callerPath = process.cwd();
 let fileName;
@@ -41,7 +42,8 @@ Runner.run(
     namespace,
     allFiles: cli.allFiles,
     collectRootVariables: cli.rootVariables,
-    guessTypes: cli.guessTypes
+    guessTypes: cli.guessTypes,
+    mockupMode: cli.mockup
   },
   files,
   fileName,

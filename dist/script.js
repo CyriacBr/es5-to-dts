@@ -688,7 +688,9 @@ var DTSWriter = /** @class */ (function () {
         }
         if (globals.length > 0) {
             text = "declare global {\n            " + globals
-                .map(function (c) { return "interface " + c.name + " {\n              " + c.properties.map(function (p) { return _this.propertyToString(p).replace('static', ''); }).join('\n') + "\n            }"; })
+                .map(function (c) { return "interface " + c.name + " {\n              " + c.properties
+                .map(function (p) { return _this.propertyToString(p, true).replace('static', ''); })
+                .join('\n') + "\n            }"; })
                 .join('\n') + "\n        }\n        ";
         }
         var normal = classes.filter(function (c) { return !c.global; });
@@ -704,11 +706,21 @@ var DTSWriter = /** @class */ (function () {
         }
         return this.print(text);
     };
-    DTSWriter.propertyToString = function (property) {
-        return ("" + (property.jsDoc && property.jsDoc.getText ? property.jsDoc.getText() + '\n' : '') + (property.static ? 'static ' : '') + (property.readonly ? 'readonly ' : '') + property.name + ": " + this.propertyTypeToString(property) + ";").trim();
+    DTSWriter.propertyToString = function (property, isMethod) {
+        if (isMethod === void 0) { isMethod = false; }
+        return ("" + (property.jsDoc && property.jsDoc.getText ? property.jsDoc.getText() + '\n' : '') + (property.static ? 'static ' : '') + (property.readonly ? 'readonly ' : '') + (isMethod
+            ? "" + this.toMethodTypeString(property)
+            : property.name + ": " + this.propertyTypeToString(property)) + ";").trim();
     };
     DTSWriter.propertyTypeToString = function (property) {
         return "" + (property.typeGuessing ? property.typeGuessing.toInlineString() : property.type);
+    };
+    DTSWriter.toMethodTypeString = function (property) {
+        var str = this.propertyTypeToString(property);
+        if (str.match(/^\((.*)\)\s*\=\>\s*(.+)/i)) {
+            return property.name + "(" + RegExp.$1 + "): " + RegExp.$2;
+        }
+        return property.name + ": " + this.propertyTypeToString(property);
     };
     DTSWriter.classToString = function (_class) {
         var _this = this;
@@ -717,7 +729,7 @@ var DTSWriter = /** @class */ (function () {
             ? "constructor" + _class.constructorProperty.type.replace(/ \=\>.+/i, '') + ";\n"
             : "constructor" + _class.constructorSignature + ";\n") + _class.properties
             .filter(function (p) { return p !== _class.constructorProperty; })
-            .map(function (p) { return _this.propertyToString(p); })
+            .map(function (p) { return _this.propertyToString(p, true); })
             .join('\n\n') + "\n        }";
     };
     DTSWriter.functionToString = function (func) {
@@ -1169,6 +1181,70 @@ while(tab = entries.next().value) {
 }
 */
 
+var MockupWriter = /** @class */ (function () {
+    function MockupWriter() {
+    }
+    MockupWriter.print = function (dts) {
+        var printer = ts.createPrinter();
+        var sourceFile = ts.createSourceFile('test.ts', dts, ts.ScriptTarget.ES2017, true, ts.ScriptKind.TS);
+        return printer.printFile(sourceFile);
+    };
+    MockupWriter.make = function (classes, functions, properties) {
+        var _this = this;
+        var text = '';
+        if (Runner.options.guessTypes) {
+            text += 'declare type Guess<T> = Partial<T>;\n';
+        }
+        var normal = classes.filter(function (c) { return !c.global; });
+        var rootProps = properties.filter(function (p) { return !p.parentSymbol; });
+        var namespace = Runner.options.namespace;
+        if (namespace) {
+            text += "export declare namespace " + namespace + "{\n            " + rootProps.map(function (p) { return "var " + p.name + ": " + _this.propertyTypeToString(p) + ";"; }).join('\n') + "\n            " + functions.map(function (f) { return _this.functionToString(f); }).join('\n') + "\n            " + normal.map(function (c) { return _this.classToString(c); }).join('\n') + "\n          }";
+        }
+        else {
+            text += "\n            " + rootProps
+                .map(function (p) { return "export var " + p.name + ": " + _this.propertyTypeToString(p) + ";"; })
+                .join('\n') + "\n            " + functions.map(function (f) { return 'export ' + _this.functionToString(f); }).join('\n') + "\n            " + normal.map(function (c) { return 'export ' + _this.classToString(c); }).join('\n') + "\n          ";
+        }
+        return this.print(text);
+    };
+    MockupWriter.propertyToString = function (property, isMethod) {
+        if (isMethod === void 0) { isMethod = false; }
+        return ("" + (property.jsDoc && property.jsDoc.getText ? property.jsDoc.getText() + '\n' : '') + (property.static ? 'static ' : '') + (property.readonly ? 'readonly ' : '') + (isMethod
+            ? "" + this.toMethodTypeString(property)
+            : property.name + ": " + this.propertyTypeToString(property))).trim();
+    };
+    MockupWriter.propertyTypeToString = function (property) {
+        return "" + (property.typeGuessing ? property.typeGuessing.toInlineString() : property.type);
+    };
+    MockupWriter.toMethodTypeString = function (property) {
+        var str = this.propertyTypeToString(property);
+        if (str.match(/^\((.*)\)\s*\=\>\s*(.+)/i)) {
+            var returnType = RegExp.$2.trim();
+            if (returnType !== 'void') {
+                return property.name + "(" + RegExp.$1 + "): " + returnType + " { return null; }";
+            }
+            return property.name + "(" + RegExp.$1 + "): " + returnType + " {}";
+        }
+        return property.name + ": " + this.propertyTypeToString(property);
+    };
+    MockupWriter.classToString = function (_class) {
+        var _this = this;
+        var constructorDoc = _class.jsDoc && _class.jsDoc.getText ? _class.jsDoc.getText() : '';
+        return "class " + _class.name + (_class.extends ? " extends " + _class.extends : '') + " {" + constructorDoc + "\n          " + (_class.constructorProperty
+            ? "constructor" + _class.constructorProperty.type.replace(/ \=\>.+/i, '') + " {}\n"
+            : "constructor" + _class.constructorSignature + " {}\n") + _class.properties
+            .filter(function (p) { return p !== _class.constructorProperty; })
+            .map(function (p) { return _this.propertyToString(p, true); })
+            .join('\n\n') + "\n        }";
+    };
+    MockupWriter.functionToString = function (func) {
+        var doc = func.jsDoc && func.jsDoc.getText ? func.jsDoc.getText() : '';
+        return doc + "function " + func.name + func.constructorSignature + " { return null; }";
+    };
+    return MockupWriter;
+}());
+
 var Runner = /** @class */ (function () {
     function Runner() {
     }
@@ -1196,9 +1272,17 @@ var Runner = /** @class */ (function () {
                 });
             }
             var text = this._runPhase('Generating & writing result', function () {
-                var result = DTSWriter.make(builtData_1.classes, builtData_1.functions, properties_1);
-                if (mode === 'write') {
-                    var resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
+                var result;
+                var resultFileName;
+                if (options.mockupMode) {
+                    result = MockupWriter.make(builtData_1.classes, builtData_1.functions, properties_1);
+                    resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.ts';
+                }
+                else {
+                    result = DTSWriter.make(builtData_1.classes, builtData_1.functions, properties_1);
+                    resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
+                }
+                if (resultFileName && mode === 'write') {
                     fs.writeFileSync(path.resolve(callerPath, resultFileName), result);
                 }
                 return result;
@@ -1246,16 +1330,17 @@ var Runner = /** @class */ (function () {
     return Runner;
 }());
 
-var version = "1.0.5";
+var version = "1.1.2";
 
 var cli = require('commander');
 cli
     .version(version)
     .option('-n, --namespace [namespace]', 'Wrap the file into a namespace')
-    .option('-a, --all-files [outputName]', 'Process all files in the directory and output a single dts')
+    .option('-a, --all-files [outputName]', 'Process all files in the directory and output a single d.ts')
     .option('-b, --bundled-output', 'When -a is used, bundle the output into a single file')
     .option('-r, --root-variables', 'Collect root variables')
     .option('-g, --guess-types', 'Guess types')
+    .option('-m, --mockup', 'Generate a mockup of the definition file instead of a d.ts')
     .parse(process.argv);
 var callerPath = process.cwd();
 var fileName;
@@ -1285,5 +1370,6 @@ Runner.run({
     namespace: namespace,
     allFiles: cli.allFiles,
     collectRootVariables: cli.rootVariables,
-    guessTypes: cli.guessTypes
+    guessTypes: cli.guessTypes,
+    mockupMode: cli.mockup
 }, files, fileName, callerPath);

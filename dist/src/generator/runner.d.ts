@@ -7,6 +7,7 @@ export interface Options {
     allFiles?: boolean;
     collectRootVariables?: boolean;
     guessTypes?: boolean;
+    mockupMode?: boolean;
 }
 export declare class Runner {
     static options: Options;
