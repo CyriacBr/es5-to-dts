@@ -1,17 +1,20 @@
-type Guess<T> = Partial<T>;
+declare type Guess<T> = Partial<T>;
 
 export declare namespace Test {
   var SacredPoint: Guess<Point2D>;
   var CursedPoint: Guess<Point2D>;
   class Point2D {
-    new(x: any, y: any);
-    x: any;
-    y: any;
+    constructor(x: any, y: any);
+    x: Guess<number>;
+    y: Guess<number>;
+    add(x: Guess<number>, y: Guess<number>): void;
   }
   class Circle {
-    new(radius: any, center: any);
-    radius: any;
+    constructor(radius: any, center: any, label: any);
+    radius: Guess<number>;
     center: any;
-    isSame: (other: Guess<Circle>) => boolean;
+    label: any;
+    isSame(other: Guess<Circle>): boolean;
+    getDiameter(): number;
   }
 }

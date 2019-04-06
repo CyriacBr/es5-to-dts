@@ -9,12 +9,14 @@ import ora from 'ora';
 import * as Readline from 'readline';
 import { ErrorLogger } from './errorLogger';
 import { TypeGuesser } from './typeGuesser';
+import { MockupWriter } from './mockupWriter';
 
 export interface Options {
   namespace?: string;
   allFiles?: boolean;
   collectRootVariables?: boolean;
   guessTypes?: boolean;
+  mockupMode?: boolean;
 }
 
 export class Runner {
@@ -27,17 +29,17 @@ export class Runner {
     };
   };
 
-  static makeProgram(file: File) {
+  static makeProgram(files: File[]) {
     const lib: File = {
       content: fs.readFileSync(path.resolve(__dirname, '../../lib/lib.es5.d.ts')).toString(),
       fileName: 'lib.es2018.d.ts'
     };
-    return createProgram([file, lib], {});
+    return createProgram([...files, lib], {});
   }
 
   static run(
     options: Options,
-    file: File,
+    files: File[],
     fileName: string,
     callerPath: string,
     mode: 'output' | 'write' = 'write'
@@ -45,7 +47,7 @@ export class Runner {
     this.options = options;
 
     try {
-      const program = this.makeProgram(file);
+      const program = this.makeProgram(files);
 
       const properties = this._runPhase('Collecting properties', () =>
         new PropertyCollector().collect(program)
@@ -53,15 +55,22 @@ export class Runner {
       const builtData = this._runPhase('Collecting pseudo classes', () =>
         new ClassCollector().collect(program, properties)
       );
-      if(options.guessTypes) {
+      if (options.guessTypes) {
         this._runPhase('Guessing properties typings', () => {
           TypeGuesser.guess(program, properties, builtData.classes);
         });
       }
       const text = this._runPhase('Generating & writing result', () => {
-        const result = DTSWriter.make(builtData.classes, builtData.functions, properties);
-        if (mode === 'write') {
-          const resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
+        let result;
+        let resultFileName;
+        if (options.mockupMode) {
+          result = MockupWriter.make(builtData.classes, builtData.functions, properties);
+          resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.ts';
+        } else {
+          result = DTSWriter.make(builtData.classes, builtData.functions, properties);
+          resultFileName = fileName.replace(/\.(t|j)s/i, '') + '.d.ts';
+        }
+        if (resultFileName && mode === 'write') {
           fs.writeFileSync(path.resolve(callerPath, resultFileName), result);
         }
         return result;

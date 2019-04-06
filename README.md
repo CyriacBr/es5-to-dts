@@ -16,7 +16,7 @@ viewed at the end:
 Feel free to open an issue with the logs and the concerned part of code.
 
 Since 1.1.0, es5-to-dts now try to guess types from usage and objects' properties.  
-Refer to the test cases bellow.
+(**However it's really unreliable for now**)
 
 ## Changelog
 - 1.0.0: Initial release
@@ -30,7 +30,9 @@ Added many more patterns to handle
 - 1.1.0:  
 Added cli options
 Added type guessing
-
+- 1.1.1: Added '--all-files' cli flag
+- 1.1.2: Added '--m' cli flag, in order to generate mockup `ts` files instead of `d.ts`.
+Mockup files are simply a `d.ts` version with empty implementation.
 
 ## TODO
 - Remove duplicate properties
@@ -49,9 +51,11 @@ To generate a declaration file:
 - `-n namespace` : The definitions will be wrapper inside a namespace.
 - `-a` : Process all files inside the directory.
 - `-r` : Collect root variables.  
-- `-g` : Guess types.
+- `-g` : Guess types. (WIP)
+- `-a outputFileName` : Process all files in the folder and output a single `d.ts` file.
+- `-m` : Generate a mockup of the definition file instead of a `d.ts`.
 
-Example: `es5-to-dts oldFile.js -n MyNamespace -r -g`
+Example: `es5-to-dts oldFile.js -n MyNamespace`
 
 
 ## Example

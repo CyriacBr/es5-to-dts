@@ -8,18 +8,34 @@ const cli = require('commander');
 cli
   .version(pkg.version)
   .option('-n, --namespace [namespace]', 'Wrap the file into a namespace')
-  .option('-a, --all-files', 'Process all files in the directory')
+  .option('-a, --all-files [outputName]', 'Process all files in the directory and output a single dts')
+  .option('-b, --bundled-output', 'When -a is used, bundle the output into a single file')
   .option('-r, --root-variables', 'Collect root variables')
   .option('-g, --guess-types', 'Guess types')
   .parse(process.argv);
 const callerPath = process.cwd();
-const fileName = process.argv[2] as string;
+let fileName;
 const namespace = cli.namespace as string;
 
-const file: File = {
-  content: fs.readFileSync(path.resolve(callerPath, fileName)).toString(),
-  fileName: 'file1.ts'
-};
+const files: File[] = [];
+if (cli.allFiles) {
+  fileName = cli.outputName || 'output';
+  let filesName = fs.readdirSync(callerPath);
+  let i = 1;
+  for (const fileName of filesName) {
+    files.push({
+      content: fs.readFileSync(path.resolve(callerPath, fileName)).toString(),
+      fileName: `file${i}.ts`
+    });
+    i++;
+  }
+} else {
+  fileName = process.argv[2] as string;
+  files.push({
+    content: fs.readFileSync(path.resolve(callerPath, fileName)).toString(),
+    fileName: 'file1.ts'
+  });
+}
 Runner.run(
   {
     namespace,
@@ -27,7 +43,7 @@ Runner.run(
     collectRootVariables: cli.rootVariables,
     guessTypes: cli.guessTypes
   },
-  file,
+  files,
   fileName,
   callerPath
 );

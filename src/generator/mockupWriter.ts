@@ -3,7 +3,7 @@ import { Property } from './propertyCollector';
 import { Runner } from './runner';
 import * as ts from 'typescript';
 
-export class DTSWriter {
+export class MockupWriter {
   static print(dts: string) {
     const printer: ts.Printer = ts.createPrinter();
     const sourceFile: ts.SourceFile = ts.createSourceFile(
@@ -17,22 +17,9 @@ export class DTSWriter {
   }
 
   static make(classes: PseudoClass[], functions: PseudoClass[], properties: Property[]): string {
-    const globals = classes.map(c => (c.global ? c : null)).filter(v => !!v);
     let text = '';
     if (Runner.options.guessTypes) {
       text += 'declare type Guess<T> = Partial<T>;\n';
-    }
-    if (globals.length > 0) {
-      text = `declare global {
-            ${globals
-              .map(
-                c => `interface ${c.name} {
-              ${c.properties.map(p => this.propertyToString(p, true).replace('static', '')).join('\n')}
-            }`
-              )
-              .join('\n')}
-        }
-        `;
     }
     const normal = classes.filter(c => !c.global);
     const rootProps = properties.filter(p => !p.parentSymbol);
@@ -72,7 +59,11 @@ export class DTSWriter {
   static toMethodTypeString(property: Property) {
     let str = this.propertyTypeToString(property);
     if (str.match(/^\((.*)\)\s*\=\>\s*(.+)/i)) {
-      return `${property.name}(${RegExp.$1}): ${RegExp.$2}`;
+      let returnType = RegExp.$2.trim();
+      if (returnType !== 'void') {
+        return `${property.name}(${RegExp.$1}): ${returnType} { return null; }`;
+      }
+      return `${property.name}(${RegExp.$1}): ${returnType} {}`;
     }
     return `${property.name}: ${this.propertyTypeToString(property)}`;
   }
@@ -84,8 +75,8 @@ export class DTSWriter {
     } {${constructorDoc}
           ${
             _class.constructorProperty
-              ? `constructor${_class.constructorProperty.type.replace(/ \=\>.+/i, '')};\n`
-              : `constructor${_class.constructorSignature};\n`
+              ? `constructor${_class.constructorProperty.type.replace(/ \=\>.+/i, '')} {};\n`
+              : `constructor${_class.constructorSignature} {};\n`
           }${_class.properties
       .filter(p => p !== _class.constructorProperty)
       .map(p => this.propertyToString(p, true))
@@ -95,6 +86,6 @@ export class DTSWriter {
 
   static functionToString(func: PseudoClass) {
     const doc = func.jsDoc && func.jsDoc.getText ? func.jsDoc.getText() : '';
-    return `${doc}function ${func.name}${func.constructorSignature};`;
+    return `${doc}function ${func.name}${func.constructorSignature} { return null; };`;
   }
 }

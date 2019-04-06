@@ -4,9 +4,6 @@ import { getTypeString, objectLiteralToObject, traverseProgram, collectNodesBy }
 import * as DotObject from 'dot-object';
 import * as util from 'util';
 import { PseudoClass } from './classCollector';
-import { Runner } from './runner';
-import * as utils from 'tsutils';
-import { VariableInfo } from 'tsutils';
 
 export class Guess {
   value: any[];
@@ -71,17 +68,16 @@ export class TypeGuesser {
     this.knownClasses = classes.filter(c => !c.global);
     this.guessRootPropertiesType(properties);
     this.guessPropertiesFunctionType(properties);
+    this.guessClassPropertiesType(classes);
   }
 
   static guessRootPropertiesType(properties: Property[]) {
-    const nodes = this.program.getSourceFiles()[0].statements as any;
-    this.guessFromBody(nodes, properties.filter(p => !p.parentSymbol));
+    this.guessFromBody(this.program.getSourceFiles()[0], properties.filter(p => !p.parentSymbol));
   }
 
   static guessPropertiesFunctionType(properties: Property[]) {
     for (let prop of properties) {
       if (prop.rightNode && ts.isFunctionExpression(prop.rightNode)) {
-        const node = prop.rightNode;
         if (prop.type.match(/\((.+?)\)\s*\=\>\s*(.+)/i)) {
           const props: Property[] = [];
           const paramsWithType = RegExp.$1.split(',');
@@ -108,27 +104,32 @@ export class TypeGuesser {
   }
 
   static guessClassPropertiesType(classes: PseudoClass[]) {
-    let props: Property[] = [];
     for (const _class of classes) {
-      props = [].concat(
-        props,
-        _class.properties.map(p => {
-          return {
-            ...p,
-            name: 'this.' + p.name
-          };
-        })
-      );
+      let props: Property[] = _class.properties.map(prop => {
+        return {
+          ...prop,
+          name: 'this.' + prop.name
+        };
+      });
+      for (const prop of _class.properties) {
+        if (prop.rightNode && ts.isFunctionExpression(prop.rightNode)) {
+          this.guessFromBody(prop.rightNode, props);
+          //nodes.push(prop.rightNode);
+        }
+      }
+      //console.log('props :', props);
+      for (let i = 0; i < props.length; i++) {
+        _class.properties[i].guessedType = props[i].guessedType;
+        _class.properties[i].typeGuessing = props[i].typeGuessing;
+        //console.log(classProp.name, ' ', props[i].typeGuessing);
+      }
     }
-    const nodes = this.program.getSourceFiles()[0].statements as any;
-    this.guessFromBody(nodes, props);
-    console.log('props :', props);
   }
 
   static guessClassConstructorTypes(_class: PseudoClass) {}
 
   static guessParametersType(node: ts.FunctionExpression, props: Property[]) {
-    this.guessFromBody(node.body.statements as any, props);
+    this.guessFromBody(node.body, props);
     const result: { [propName: string]: string } = {};
     for (const prop of props) {
       if (prop.guessedType) {
@@ -138,20 +139,19 @@ export class TypeGuesser {
     return result;
   }
 
-  static guessFromBody(body: ts.Node[], properties: Property[]) {
-    if (body.length === 0) return;
-    const data = this.inferDataFromCallExpressions(body[0].parent, properties);
+  static guessFromBody(body: ts.Node, properties: Property[]) {
+    const data = this.inferDataFromCallExpressions(body, properties);
     const assignedTypes = data.assignedTypes;
     const typings = {
-      ...this.typingFromAmbientUsage(body[0].parent, properties),
+      ...this.typingFromAmbientUsage(body, properties),
       ...data.typings
     };
-    for (const node of body) {
+    body.forEachChild(node => {
       if (ts.isVariableStatement(node)) {
         const declaration = node.declarationList.declarations[0];
         const left = declaration.name;
         const right = declaration.initializer;
-        if (!right || !left) continue;
+        if (!right || !left) return;
         const prop = properties.find(p => {
           const regex = new RegExp(`^${p.name}`);
           return !!left.getText().match(regex);
@@ -164,7 +164,7 @@ export class TypeGuesser {
         }
       } else if (ts.isExpressionStatement(node) && ts.isBinaryExpression(node.expression)) {
         const { left, right } = node.expression;
-        if (!right || !left) continue;
+        if (!right || !left) return;
         const prop = properties.find(p => {
           const regex = new RegExp(`^${p.name}`);
           return !!left.getText().match(regex);
@@ -176,12 +176,13 @@ export class TypeGuesser {
           });
         }
       }
-    }
+    });
+    //console.log('typings :', typings);
     for (const prop of properties) {
       const typingObj = this.inferFromKnownSymbols(typings[prop.name]);
       const usage = {};
       for (const type of assignedTypes[prop.name] || []) {
-        let typeStr = JSON.stringify(type);
+        let typeStr = typeof type === 'string' ? type : JSON.stringify(type);
         if (!usage[typeStr]) {
           usage[typeStr] = 0;
         }
@@ -204,6 +205,7 @@ export class TypeGuesser {
         if (typeof v == 'object' && Object.keys(v).length == 0) return false;
         return true;
       });
+      if (types.length === 0) return;
       if (types.length === 1 && types[0] === prop.type) return;
       prop.typeGuessing = new Guess(types, prop.name);
       prop.guessedType = prop.typeGuessing.toInlineString();
@@ -235,17 +237,16 @@ export class TypeGuesser {
     for (const expr of expressions) {
       //console.log('expr :', expr);
       let propsAsArgs = expr.arguments.map(arg => {
-        let props: (Property | {propName: string, str: string})[] = [];
+        let props: (Property | { propName: string; str: string })[] = [];
         let regex = new RegExp('\\b(\\S+)\\b', 'g');
-        while(regex.exec(arg.getText())) {
+        while (regex.exec(arg.getText())) {
           let str = RegExp.$1.trim();
-          console.log('str :', str);
-          if (str.includes('.')) {
+          if (str.match(/^(.+)\..+/i) && RegExp.$1.trim() !== 'this') {
             let prop = properties.find(p => str.startsWith(p.name));
-            if(prop) props.push({ propName: prop.name, str});
+            if (prop) props.push({ propName: prop.name, str });
           } else {
             let prop = properties.find(p => p.name === str);
-            if(prop) props.push(prop);
+            if (prop) props.push(prop);
           }
         }
         return props;
@@ -268,6 +269,7 @@ export class TypeGuesser {
           //let symbol = tc.getSymbolAtLocation(expr.expression.expression);
           continue;
         }
+        continue;
       }
       let type = typeChecker.getTypeOfSymbolAtLocation(symbol, expr);
       let str = typeChecker.typeToString(type);
@@ -276,12 +278,12 @@ export class TypeGuesser {
         for (let i = 0; i < propsAsArgs.length; i++) {
           let props = propsAsArgs[i].filter(v => !!v);
           let argStr = args[i];
-          if (argStr.match(/.+\s*\:\s*(.+)/i)) {
+          if (argStr && argStr.match(/.+\s*\:\s*(.+)/i)) {
             let type = RegExp.$1.trim();
             if (type !== 'any') {
               props.forEach((prop: any) => {
-                if(prop.propName) {
-                  if(!typings[prop.propName]) {
+                if (prop.propName) {
+                  if (!typings[prop.propName]) {
                     typings[prop.propName] = {};
                   }
                   typings[prop.propName][prop.str.replace(prop.propName + '.', '')] = type;
@@ -298,7 +300,6 @@ export class TypeGuesser {
         }
       }
     }
-    console.log('assignedTypes :', assignedTypes);
     return {
       assignedTypes,
       typings
@@ -354,8 +355,9 @@ export class TypeGuesser {
         if (matchingSymbols.length > 0 && keys.length) {
           const symb = matchingSymbols[0];
           if (keys.length <= symb.properties.length) {
-            const partial = symb.properties.length > keys.length;
-            typings[key] = partial ? `Partial<${symb.name}>` : symb.name;
+            //const partial = symb.properties.length > keys.length;
+            //typings[key] = partial ? `Partial<${symb.name}>` : symb.name;
+            typings[key] = symb.name;
             continue;
           }
         }
@@ -365,60 +367,60 @@ export class TypeGuesser {
   }
 }
 
-const str = ts.generateTypesForGlobal('test', { name: 'hi', val: 1, add: (a, b) => a + b }, {});
+// const str = ts.generateTypesForGlobal('test', { name: 'hi', val: 1, add: (a, b) => a + b }, {});
 
-const program = Runner.makeProgram({
-  fileName: 'test.ts',
-  content: `
+// const program = Runner.makeProgram({
+//   fileName: 'test.ts',
+//   content: `
 
-  var myVar = {};
-  myVar.hello = {};
-  myVar.hello.world = true;
-  myVar.hey = "what?";
-  myVar.aVal = 5;
-  Math.round(myVar.coucou);
+//   var myVar = {};
+//   myVar.hello = {};
+//   myVar.hello.world = true;
+//   myVar.hey = "what?";
+//   myVar.aVal = 5;
+//   Math.round(myVar);
 
-  function MyClass(a, b) {
-    this.myProp = {};
-    this.myProp.x = 0;
-    this.myProp.y = 0;
-    this.myNbr = null;
-  }
-  MyClass.prototype.myMethod = function(a, b) {
-    Math.round(this.myNbr);
-    return Math.round(a);
-  }
-  `
-});
-TypeGuesser.program = program;
-const props: Property[] = [
-  {
-    name: 'myVar',
-    type: 'any',
-    parentSymbol: null
-  }
-];
-TypeGuesser.guessFromBody(program.getSourceFiles()[0].statements as any, props);
-console.log('props :', props);
-/*
-TypeGuesser.guessClassPropertiesType([
-  {
-    name: 'MyClass',
-    constructorArgs: [],
-    properties: [
-      {
-        name: 'myProp',
-        parentSymbol: 'MyClass',
-        type: 'any'
-      },
-      {
-        name: 'myNbr',
-        parentSymbol: 'MyClass',
-        type: 'any'
-      },
-    ]
-  }
-])*/
+//   function MyClass(a, b) {
+//     this.myProp = {};
+//     this.myProp.x = 0;
+//     this.myProp.y = 0;
+//     this.myNbr = null;
+//   }
+//   MyClass.prototype.myMethod = function(a, b) {
+//     Math.round(this.myNbr);
+//     return Math.round(a);
+//   }
+//   `
+// });
+// TypeGuesser.program = program;
+// const props: Property[] = [
+//   {
+//     name: 'myVar',
+//     type: 'any',
+//     parentSymbol: null
+//   }
+// ];
+// //TypeGuesser.guessFromBody(program.getSourceFiles()[0].statements as any, props);
+// //console.log('props :', props);
+
+// TypeGuesser.guessClassPropertiesType([
+//   {
+//     name: 'MyClass',
+//     constructorArgs: [],
+//     properties: [
+//       {
+//         name: 'myProp',
+//         parentSymbol: 'MyClass',
+//         type: 'any'
+//       },
+//       {
+//         name: 'myNbr',
+//         parentSymbol: 'MyClass',
+//         type: 'any'
+//       }
+//     ]
+//   }
+// ]);
 
 /*
 let result = utils.collectVariableUsage(program.getSourceFiles()[0]);

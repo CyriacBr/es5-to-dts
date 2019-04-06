@@ -1,6 +1,7 @@
 import typescript from 'rollup-plugin-typescript2';
 import pkg from './package.json';
 import replace from 'rollup-plugin-re';
+import json from 'rollup-plugin-json';
 
 export default {
   input: 'src/script.ts',
@@ -13,6 +14,7 @@ export default {
   ],
   external: [...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.peerDependencies || {})],
   plugins: [
+    json(),
     replace({
       replaces: {
         '../../lib/lib.es5.d.ts': '../lib/lib.es5.d.ts'

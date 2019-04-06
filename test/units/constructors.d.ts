@@ -1,10 +1,10 @@
 export declare namespace Test {
     class DirectCtr {
-        new(x: any);
+        constructor(x: any);
         x: any;
     }
     class AltCtr {
-        new(x: any);
+        constructor(x: any);
         x: any;
     }
 }
